@@ -1,0 +1,202 @@
+#!/bin/bash +x 
+
+
+show_help()
+{
+	echo "$0: collect the history directory utility, when user prompt a folder token, this tool can be help to relocate to a used path, no need for fullpath input."
+	echo "	install <bindir>  	install this utility"
+	echo "	uninstall  		uninstall this utility"
+	echo "	enable  <locdir> <alias>	start this function, set alias to avoid any name conflict."
+	echo "	uninstall  		stop this function"
+	echo "	-h			display help message"
+	echo "	--help			display help message"
+	echo "	-s  			collect path"
+	echo "	--lisence  		show lisence info"
+	echo "	--donation  		show donation info"
+	echo "	--version  		show version info"
+	echo "Originator: Li Wen(wenli2@lenovo.com)"
+	return $1
+}
+
+check_pick()
+{
+	source $MD_BINDIR/common
+	which pick || die "can't find pick, you need install pick first. pick: https://www.ostechnix.com/pick-commandline-fuzzy-search-tool-linux/" 0
+}
+
+find_install_dir()	
+{
+	INSTALL_DIR=$HOME
+	env | grep -w HOME || INSTALL_DIR=/. 
+	SCD_DIR=$INSTALL_DIR/.scd
+	test -d $SCD_DIR || mkdir -p $SCD_DIR 
+}
+
+check_user_premission()
+{
+        echo "PROMPT_COMMAND has been defined(have you already installed this utility before?), scd requires to overwrite this variable, please press y to continue or any other key to cancel the installation."
+        read answer
+        test -z $answer &&      die "bye-bye." 1
+        test $answer != 'y' &&  die "bye-bye." 1
+}
+
+do_uninstall()
+{
+	sed -i '/md_env\.sh/d' $HOME/.bashrc
+	. $HOME/.bashrc
+	rm -rf $MD_LOCDIR >/dev/null
+	rm -rf $MD_BINDIR >/dev/null
+	unset MD_BINDIR
+}
+
+do_install()
+{
+	#echo "$1"
+	MD_BINDIR=$1/.md
+	test -d $MD_BINDIR || mkdir -p $MD_BINDIR && chmod o+w $MD_BINDIR 
+	cp -r ./* $MD_BINDIR
+
+	echo "#!/bin/bash" >$MD_BINDIR/md_env.sh
+	echo "export MD_BINDIR=$MD_BINDIR" >>$MD_BINDIR/md_env.sh
+	chmod +x $MD_BINDIR/md_env.sh
+
+	echo ". $MD_BINDIR/md_env.sh" >>$HOME/.bashrc
+
+	#check_pick
+
+	. $HOME/.bashrc
+}
+
+set_tracking()
+{
+	echo "export OLD_PROMPT_COMMAND=$PROMPT_COMMAND" >>$MD_LOCDIR/md_locenv.sh
+
+	if [ -z $PROMPT_COMMAND ]
+	then
+		echo "export PROMPT_COMMAND='. $MD_BINDIR/md_helper -s'" >>$MD_BINDIR/md_locenv.sh
+	else
+		#todo to backward compitiable
+		#echo "export PROMPT_COMMAND='. $MD_BINDIR/md_helper -s; "$PROMPT_COMMAND"'" >>$MD_BINDIR/md_locenv.sh
+		echo "export PROMPT_COMMAND='. $MD_BINDIR/md_helper -s'" >>$MD_BINDIR/md_locenv.sh
+	fi
+
+	echo "export OLD_HISTSIZE=$OLD_HISTSIZE" >>$MD_LOCDIR/md_locenv.sh
+	echo "export OLD_HISTORY=`set -o | grep history | awk '{print $2}'`" >>$MD_LOCDIR/md_locenv.sh
+
+	test -z $HISTSIZE && HISTSIZE=500
+	test "`set -o | grep history | awk '{print $2}'`" = "on" || set -o history
+}
+
+unset_tracking()
+{
+	export PROMPT_COMMAND=$OLD_PROMPT_COMMAND
+	test -z $PROMPT_COMMAND && unset PROMPT_COMMAND
+
+	export HISTSIZE=$OLD_HISTSIZE
+
+	test "$OLD_HISTORY" = "on" || set +o history
+}
+
+do_enable()
+{
+	MD_LOCDIR=$1/.md
+	test -d $MD_LOCDIR || mkdir -p $MD_LOCDIR && chmod o+w $MD_LOCDIR
+
+	echo "#!/bin/bash" >$MD_LOCDIR/md_locenv.sh
+	echo "export MD_LOCDIR=$MD_LOCDIR" >>$MD_LOCDIR/md_locenv.sh
+
+	set_tracking
+
+	echo "function $2()" >>$MD_LOCDIR/md_locenv.sh
+	echo "{" >>$MD_LOCDIR/md_locenv.sh
+	echo ". $MD_BINDIR/md" >>$MD_LOCDIR/md_locenv.sh
+	echo "}" >>$MD_LOCDIR/md_locenv.sh
+	#echo "set -f" >>$MD_LOCDIR/md_locenv.sh
+
+	echo ". $MD_LOCDIR/md_locenv.sh" >>$HOME/.bashrc
+	chmod +x $MD_LOCDIR/md_locenv.sh
+
+	. $HOME/.bashrc
+	touch $MD_LOCDIR/memory.path
+	touch $MD_LOCDIR/.clean
+}
+
+do_disable()
+{
+	unset_tracking
+
+	sed -i '/md_locenv\.sh/d' $HOME/.bashrc
+	. $HOME/.bashrc
+	rm $MD_LOCDIR/md_locenv.sh
+	unset MD_LOCDIR
+}
+
+#clean at most one time for each day
+clean_memory()
+{
+	
+	#set -x
+	#set +x
+	#LASTTIME="`ls --full-time $MD_LOCDIR/.clean | awk '{print $6}'`"
+	#CURRENT_TIME="`date +'%Y-%m-%d'`"
+	if [ -f $MD_LOCDIR/.clean  -a  "`ls --full-time $MD_LOCDIR/.clean | awk '{print $6}'`" = "`date +'%Y-%m-%d'`" ]; then
+		return 2
+	else
+		for DIR in `cat $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}'` 
+		do
+			SED_PATH=`echo $DIR | sed 's|/|\\\\&|g'`
+			test -d $DIR || sed -i '/'$SED_PATH'/d' $MD_LOCDIR/memory.path 
+		done
+		touch $MD_LOCDIR/.clean
+	fi
+	#set +x
+	return 0
+# it's difficlut to give a precise remove from memory after the user has removed folder from file system
+#	PATH_DEL=`realpath $PWD/$1`
+#	test -d $PATH_DEL || PATH_DEL=`realpath $PWD/$2`
+#	test -d $PATH_DEL || return 2
+#	SED_PATH=`echo $PATH_DEL | sed 's|/|\\\\&|g'`
+#	sed -i '/$SED_PATH/d' $MD_LOCDIR/memory.path
+#	return 0
+}
+
+#as an alternative approach, if PWD is changed, record it to memory.path.
+#or say command to .bash_history by history -a, and check .bash_history instead.
+do_collect()
+{
+	test -e $MD_LOCDIR || return
+	test -e $MD_BINDIR || return
+	#set -x 
+	CMMD=`history 1 | awk '{print $2}'` 
+	ALIAS=`sed -n  '/function/p' $MD_LOCDIR/md_locenv.sh | sed s/\(\)// | awk '{print $2}'`
+	#to do check md alias situation
+	test "$CMMD" = "cd" -o "$CMMD" = "$ALIAS"  && echo "$PWD" >>$MD_LOCDIR/memory.path
+
+	#set +x
+
+	DEL_ARG_1=`history 1 | awk '{print $3}'` 
+	DEL_ARG_2=`history 1 | awk '{print $4}'` 
+	test "$CMMD" = "rm" && clean_memory
+	#test "$CMMD" = "rm" && clean_memory $DEL_ARG_1 $DEL_ARG_2
+	#echo `history 5` 
+}
+
+#----------------------main--------------------------------
+
+
+case $1 in
+	install) do_install $2;;
+	uninstall) do_uninstall;;
+	enable)  do_enable $2 $3;;
+	disable) do_disable;;
+	-s)	 do_collect;;
+	-h)	 show_help 0;;
+	--help)	 show_help 0;;
+	--lisence)	source $MD_BINDIR/common;show_lisence;;
+	--version)	cat $MD_BINDIR/version;;
+	--donation)	source $MD_BINDIR/common;show_donation;;
+	*)	 show_help 1;;
+
+esac
+
+

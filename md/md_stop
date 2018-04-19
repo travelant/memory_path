@@ -1,0 +1,15 @@
+#!/bin/bash
+
+
+if [ -z $MD_BINDIR ]
+then
+	echo "this tool has not been installed yet."
+	return 0
+else
+
+	CURRENT=$PWD 
+	. $MD_BINDIR/md_helper disable
+	. $MD_BINDIR/md_helper uninstall
+	cd $CURRENT 
+
+fi

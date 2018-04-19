@@ -1,0 +1,116 @@
+#!/bin/bash 
+
+
+show_help()
+{
+	echo "$0: when user prompt a folder, find the used target fullpath, move to that path. no need for user to input the every word of the path to save people's time and improve efficiency."
+	echo "	<folder> 	:first search subfolder of current path, go into if find one, if not, search folder in history. metacharactor(*) can be used in folder for pattern search."
+	echo "	<folder> l	:find latest used path in history."
+	echo "	<folder> m	:find most used path in history."
+	echo "	-h,--help	:show help this info."
+	echo "	--lisence	:show lisence info."
+	echo "	--versionn	:show version info."
+	echo "	--donation	:show donation info."
+}
+
+change_dir()
+{
+	TARGET="$1"
+	cd $TARGET  
+	if [ $? -eq 0 ]; then
+		echo $PWD >>$MD_LOCDIR/memory.path
+	else
+		#remove obsolete path in memory
+		SED_REG=`echo $TARGET | sed 's|/|\\\\&|g'`
+		sed -i '/'$SED_REG'/d' $MD_LOCDIR/memory.path
+	fi
+}
+
+#return 2, means find nothing 
+make_choice()
+{
+#	set -x
+	LIST=$1
+	#echo -e "$LIST"
+	test -z "$LIST" && return 2
+
+	PICK=$MD_BINDIR/pick/pick.`file /bin/bash | awk '{print $3}' | cut -d - -f 1`
+	
+	case `echo -e "$LIST" | wc -l` in
+		0)	return 2;;
+		1)	change_dir $LIST;;
+		*)	change_dir "`echo -e "$LIST" | $PICK`";;
+	esac
+#	set +x
+	return 0
+}
+
+
+find_common_case()
+{
+	FOLDER=$1
+	make_choice "`find ./ -maxdepth 1 -type d -name "$FOLDER"`" 
+	#find one in sub folder, mission accomplishment
+	test $? -eq 0 && return 0
+	#no match in sub folder, do history searching
+	FOLDER_REG=`echo "$FOLDER" | sed 's/\*/\[\[\:alnum\:\]\.-\\\_\]\*/g'`
+	#echo "$FOLDER_REG"
+	make_choice "`sed -n '/^.*\/'$FOLDER_REG'$/p' $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}'`"
+	test $? -eq 0 && return 0
+	#no match in history, search folder in the middle of a histoy full path
+	make_choice "`sed -n '/^.*\/'$FOLDER_REG'\//p' $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}' | sed 's|^\(.*/'$FOLDER_REG'\)/.*|\1|'`"
+	test $? -eq 2 && echo "$FOLDER(1): No such directory."; return 2
+}
+
+find_latest_used_case()
+{
+	FOLDER=$1
+	FOLDER_REG=`echo "$FOLDER" | sed 's/\*/\[\[\:alnum\:\]\.-\\\_\]\*/g'`
+	make_choice "`sed -n '/^.*\/'$FOLDER_REG'$/p' $MD_LOCDIR/memory.path | tail -n 1`"
+	test $? -eq 2 && echo "$FOLDER(2): No such directory."; return 2
+}
+
+find_most_used_case()
+{
+	FOLDER=$1
+	FOLDER_REG=`echo "$FOLDER" | sed 's/\*/\[\[\:alnum\:\]\.-\\\_\]\*/g'`
+	make_choice "`sed -n '/^.*\/'$FOLDER_REG'$/p' $MD_LOCDIR/memory.path | sort | uniq -c | sort | tail -n 1 | awk '{print $2}'`"
+	test $? -eq 2 && echo "$FOLDER(3): No such directory."; return 2
+}
+
+
+
+#------------main-----------------------
+
+FOLDER=$1
+OPTION=$2
+
+
+#set -x
+#echo "'$0'-'$1'-'$2'-$#-$@"
+#echo "$FOLDER"
+if [ -z $FOLDER ]; then cd ~; return 0; fi
+#set +x
+if [ `echo $FOLDER | grep "\/"` ]; then cd $FOLDER; return 0; fi
+
+case $FOLDER in
+	~)		cd ~; return 0;;
+	-)		cd -; return 0;;
+	.)		cd .; return 0;;
+	..)		cd ..; return 0;;
+	-h) 		show_help; return 0;;
+	--help)		show_help; return 0;;
+	--lisence) 	source $MD_BINDIR/common;show_lisence;return 0;;
+	--version)	cat $MD_BINDIR/version;return 0;;
+	--donation)	source $MD_BINDIR/common;show_donation;return 0;;
+	*)		if [ -z $OPTION ] ; then find_common_case $FOLDER;return 0; fi;;
+esac
+
+#exit 0
+
+case $OPTION in
+	l) 	find_latest_used_case $FOLDER;;
+	m) 	find_most_used_case $FOLDER;;
+	*) 	show_help;;
+esac	
+

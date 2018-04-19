@@ -1,0 +1,21 @@
+#!/bin/bash -x
+
+#1. enter folder which holds md, 2. then run `source ./md_run`
+
+INSTALL_DIR=$HOME
+env | grep -w HOME || INSTALL_DIR=/.
+
+CURRENT=$PWD
+#echo $0
+#MD_DIR=`echo $0 | rev | cut -d / -f 2- | rev`
+#cd $MD_DIR
+cd $CURRENT
+. ./md_stop >/dev/null
+#cd $MD_DIR
+cd $CURRENT
+. ./md_helper install $INSTALL_DIR 
+#cd $MD_DIR
+cd $CURRENT
+. ./md_helper enable $INSTALL_DIR  wl
+cd $CURRENT
+
