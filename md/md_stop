@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#Distributed under the terms of the GNU GPL version 2.
+
 
 if [ -z $MD_BINDIR ]
 then

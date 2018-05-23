@@ -1,5 +1,8 @@
 #!/bin/bash -x
 
+#Distributed under the terms of the GNU GPL version 2.
+
+
 #1. enter folder which holds md, 2. then run `source ./md_run`
 
 INSTALL_DIR=$HOME

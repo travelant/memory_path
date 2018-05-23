@@ -1,19 +1,34 @@
 
 
-
+0. get this tool from github
+	git clone https://github.com/travelant/memory_path
 
 1. enter the md folder
-
+	change current path to where your git clone the code.
 
 2. install 
-
+	./md_run
 
 3.what's new for md
+	after this, your shell should be able to record the path you enter, and once you have been somewhere, and if you want to go where again, all you need to do is to tell this tool the last token of whole path. e.g. if you want to go to google, that is 1600 Amphitheatre Parkway in Mountain View, Santa Clara County, California, United States. when you have been to that place. all you need to do is to tell this tool 1600 Amphitheatre Parkway(even 1600), and he will bring you direct to google HQ since machine has full path in memory. 
 
+let's say you have a path tree like below.
+$ mkdir -p US/California/Santa_Clara_County/Mountain_View/Amphitheatre_Parkway/1600
+go there, and machine will record the path.
+$ cd  US/California/Santa_Clara_County/Mountain_View/Amphitheatre_Parkway/1600
+wl is the command to invoke this tool
+$ wl 1600
+done, you are in google HQ,
+$ wl 16*
+even a metacharactor also works
 
 4.use md like cd 
-
+	wl also can do a cd job, like wl -, wl ~, wl <path> etc.
+that means you can use wl to replace cd almost.
 
 3. uninstall
+	to md folder, and run ./md_stop
 
+
+Distributed under the terms of the GNU GPL version 2.
 
