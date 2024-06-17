@@ -57,7 +57,7 @@ find_common_case()
 	#no match in sub folder, do history searching
 	FOLDER_REG=`echo "$FOLDER" | sed 's/\*/\[\[\:alnum\:\]\.-\\\_\]\*/g'`
 	#echo "$FOLDER_REG"
-	make_choice "`sed -n '/^.*\/'$FOLDER_REG'.*$/p' $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}'`"
+	make_choice "`sed -n '/^.*'$FOLDER_REG'[^\/]*$/p' $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}'`"
 	test $? -eq 0 && return 0
 	#no match in history, search folder in the middle of a histoy full path
 	make_choice "`sed -n '/^.*\/'$FOLDER_REG'\//p' $MD_LOCDIR/memory.path | sort | uniq -c | awk '{print $2}' | sed 's|^\(.*/'$FOLDER_REG'\)/.*|\1|'`"
